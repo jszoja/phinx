@@ -363,6 +363,14 @@ class Manager
         }
     }
 
+    private function __switchAdapterDb($adapter, $db) {
+        $adapter->disconnect();
+        $options = $adapter->getOptions();
+        $options['name'] = $db;
+        $adapter->setOptions($options);
+        $adapter->connect();
+    }
+
     /**
      * Execute a migration against the specified environment.
      *
@@ -382,9 +390,28 @@ class Manager
         );
         $migration->preFlightCheck($direction);
 
-        // Execute the migration and log the time elapsed.
         $start = microtime(true);
-        $this->getEnvironment($name)->executeMigration($migration, $direction, $fake);
+        if( $migration instanceof MultiDbInterface ) {
+            $dbs = $migration->getDbList( $migration->getDbGroup() );
+
+            $env = $this->getEnvironment($name);
+            $adapter = $env->getAdapter();
+            $origDb = $adapter->getOption('name');
+            foreach ( $dbs as $db ) {
+                $this->__switchAdapterDb($adapter, $db);
+                $env->executeMigration($migration, $direction, $fake);
+            }
+            $this->__switchAdapterDb($adapter, $origDb);
+            $adapter->migrated($migration, $direction, date('Y-m-d H:i:s', $start), date('Y-m-d H:i:s', time()));
+        }
+
+        else {
+            // Execute the migration and log the time elapsed.
+
+            $this->getEnvironment($name)
+                ->executeMigration($migration, $direction, $fake);
+
+        }
         $end = microtime(true);
 
         $migration->postFlightCheck($direction);

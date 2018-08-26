@@ -117,6 +117,8 @@ class MysqlAdapter extends PdoAdapter implements AdapterInterface
 
             try {
                 $db = new \PDO($dsn, $options['user'], $options['pass'], $driverOptions);
+                if( $this->getOutput()->isDebug() )
+                    $this->getOutput()->writeln("Connecting to {$dsn}...");
             } catch (\PDOException $exception) {
                 throw new \InvalidArgumentException(sprintf(
                     'There was a problem connecting to the database: %s',
